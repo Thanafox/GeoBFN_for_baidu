@@ -6,24 +6,58 @@ no_wandb: !SUB ${no_wandb}
 logging_level: !SUB ${logging_level:-warning}
 
 #data
-dataset: 
-  name: "qm9"
-  datadir: !ENV "./dataset/qm9"
-  num_workers: 4
-  n_atom_types: &_n_atom_types 5
-  atom_decoder: ['H', 'C', 'N', 'O', 'F']
-  atomic_nb: [1, 6, 7, 8, 9]
-  n_node_histogram: [0, 0, 0, 1, 4, 5, 9, 16, 49, 124, 362, 807, 1689, 3060, 
-                      5136, 7796, 10644, 13025, 13364, 13832, 9482, 9970, 3393, 
-                      4848, 539, 1506, 48, 266, 0, 25]
+# 更新后的数据集配置
+dataset:
+  name: "custom"
+  datadir: !ENV "./dataset/custom"
+  num_workers: 8  # 根据CPU核心数调整
+  n_atom_types: &_n_atom_types 9  # 原子类型总数
+  
+  # 原子类型映射关系
+  atom_decoder: ['H', 'C', 'O', 'N', 'F', 'P', 'S', 'Cl', 'Br']
+  atomic_nb: [1, 6, 8, 7, 9, 15, 16, 17, 35]  # 对应原子序数
+  
+  # 原子数量分布直方图
+n_node_histogram = [
+    0, 0, 0, 1, 2, 17, 35, 60, 115, 207,
+    314, 489, 772, 1000, 1331, 1582, 1837, 2061, 2281, 2385,
+    2435, 2502, 2524, 2461, 2404, 2296, 2203, 2024, 1904, 1668,
+    1479, 1265, 1078, 889, 763, 635, 556, 461, 350, 278,
+    228, 174, 159, 130, 91, 84, 84, 58, 51, 29,
+    25, 15, 20, 6, 5, 4, 9, 6, 5, 4,
+    3
+]
+  
+  # 数据处理参数
   remove_h: False
-  normalizer_dict: 
-    pos: 2.0
+  normalizer_dict:
+    pos: 3.0  # 根据坐标统计调整
     one_hot: 1.0
-    charges: 9.0
-  colors_dic: ['#FFFFFF99', 'C7', 'C0', 'C3', 'C1']
-  radius_dic: [0.46, 0.77, 0.77, 0.77, 0.77]
-
+    charges: 35.0  # 最大原子序数（Br=35）
+  
+  # 可视化参数（扩展颜色和半径）
+  colors_dic: [
+    '#FFFFFF99',  # H - 白色
+    '#909090',    # C - 灰色
+    '#FF0D0D',    # O - 红色
+    '#2E5CFF',    # N - 蓝色
+    '#90FF1B',    # F - 亮绿色
+    '#FF800D',    # P - 橙色
+    '#FFD300',    # S - 黄色
+    '#1BFF4D',    # Cl - 绿色
+    '#7300AB'     # Br - 紫色
+  ]
+  radius_dic: [
+    0.46,  # H
+    0.77,  # C
+    0.77,  # O
+    0.77,  # N
+    0.77,  # F
+    1.10,  # P (较大原子)
+    1.04,  # S
+    1.00,  # Cl
+    1.14   # Br
+  ]
 #model
 dynamics:
   name: "EGNN"
