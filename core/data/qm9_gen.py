@@ -112,6 +112,56 @@ class QM9Gen(DataLoader):
         return DataLoader(ds, batch_size=batch_size, shuffle=False)
 
 
+def custom_data_transform(sample_dict):
+    """ 将你的字典数据转换为PyG Data格式 """
+    # 原子类型映射 (根据你的元素列表调整)
+    element_to_idx = {'C':0, 'O':1, 'N':2, 'Cl':3, 'H':4}
+    
+    # --- 必须提供的真实数据 ---
+    pos = torch.tensor(sample_dict['coordinates'], dtype=torch.float32)  # [N,3]
+    elements = [element_to_idx[e] for e in sample_dict['elements']]
+    x = torch.tensor(elements, dtype=torch.long).unsqueeze(1)  # [N,1]
+    
+    # --- 无法准确获取的字段处理 ---
+    # 1. charges (模型必需但无真实数据)
+    charges = torch.randn(len(elements), 1)  # 随机填充 (重要！需保留维度)
+    
+    # 2. edge_index (根据全连接图生成)
+    n_nodes = len(elements)
+    adj = torch.ones(n_nodes, n_nodes, dtype=torch.bool)
+    adj.fill_diagonal_(False)  # 去除自环边
+    edge_index = adj.nonzero(as_tuple=False).t().contiguous()
+    
+    return Data(
+        x=x,           # 必须提供原子类型
+        pos=pos,        # 必须提供坐标
+        charges=charges,# 无真实数据时需保留维度
+        edge_index=edge_index,
+        num_nodes=n_nodes
+    )
+
+class CustomGen(QM9Gen):
+    def __init__(self, data_list, n_node_histogram, **kwargs):
+        # 移除原QM9数据集加载逻辑
+        self.datadir = None  
+        self.batch_size = kwargs.get('batch_size', 32)
+        self.kwargs = kwargs
+        self.device = kwargs.get('device', 'cpu')
+        self.max_n_nodes = len(n_node_histogram) + 10
+        
+        # 生成全局邻接矩阵（与原逻辑一致）
+        self.full_adj, self.diag_bool = _make_global_adjacency_matrix(self.max_n_nodes)
+        
+        # 转换自定义数据
+        pyg_data_list = [custom_data_transform(d) for d in data_list]
+        if kwargs.get("debug", False):
+            pyg_data_list = pyg_data_list[:129]
+        
+        # 创建InMemoryDataset
+        ds = TUDataset(root='./temp', name='custom', pre_transform=lambda x: x)
+        ds.data, ds.slices = ds.collate(pyg_data_list)
+        super(DataLoader, self).__init__(ds, batch_size=self.batch_size, shuffle=kwargs.get("shuffle", True))
+
 if __name__ == "__main__":
     logging.set_verbosity(logging.DEBUG)
     cfg = {"datadir": "/sharefs/gongjj/project/data/qm9_debug", "batch_size": 64}
