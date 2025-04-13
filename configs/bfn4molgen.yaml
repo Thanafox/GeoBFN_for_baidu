@@ -9,7 +9,7 @@ logging_level: !SUB ${logging_level:-warning}
 # 更新后的数据集配置
 dataset:
   name: "custom"
-  datadir: !ENV "./dataset/cus"
+  datadir: !ENV "./dataset/custom"
   num_workers: 8  # 根据CPU核心数调整
   n_atom_types: &_n_atom_types 9  # 原子类型总数
   
